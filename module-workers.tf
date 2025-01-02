@@ -29,6 +29,7 @@ module "workers" {
   state_id            = local.state_id
   ad_numbers          = local.ad_numbers
   ad_numbers_to_names = local.ad_numbers_to_names
+  enable_ipv6 = var.enable_ipv6
 
   # Cluster
   apiserver_private_host = local.apiserver_private_host
@@ -102,4 +103,8 @@ output "worker_pool_ids" {
 output "worker_pool_ips" {
   description = "Created worker instance private IPs by pool for available modes ('node-pool', 'instance')."
   value       = local.worker_count_expected > 0 ? try(one(module.workers[*].worker_pool_ips), null) : null
+}
+
+output "worker_pool_ipv6_enabled" {
+  value = local.worker_count_expected > 0 ? module.workers[0].worker_pool_ipv6_enabled : null
 }

@@ -35,3 +35,7 @@ output "worker_pool_autoscale_expected" {
   description = "# of worker pools expected with autoscale enabled from created worker pools"
   value       = local.expected_autoscale_worker_pools
 }
+
+output "worker_pool_ipv6_enabled" {
+  value = var.enable_ipv6
+}

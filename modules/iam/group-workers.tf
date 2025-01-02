@@ -35,9 +35,15 @@ locals {
     formatlist(statement, local.worker_compartments, var.worker_volume_kms_key_id)
   ])) : []
 
+  worker_cni_statements = tolist([
+    "Allow dynamic-group ${local.worker_group_name} to manage vnic-attachments in compartment id ${var.compartment_id} where ${local.worker_group_rules}",
+    "Allow dynamic-group ${local.worker_group_name} to read instances in compartment id ${var.compartment_id} where ${local.worker_group_rules}"
+  ])
+
   worker_policy_statements = var.create_iam_worker_policy ? tolist(concat(
     local.cluster_join_statements,
     local.worker_kms_volume_statements,
+    local.worker_cni_statements,
   )) : []
 }
 

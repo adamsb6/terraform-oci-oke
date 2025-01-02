@@ -12,3 +12,7 @@ data "oci_core_services" "all_oci_services" {
 data "oci_waas_edge_subnets" "waf_cidr_blocks" {
   count = var.enable_waf ? 1 : 0
 }
+
+data "oci_core_vcn" "oke_vcn" {
+  vcn_id = var.vcn_id
+}

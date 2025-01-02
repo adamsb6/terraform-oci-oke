@@ -19,6 +19,17 @@ variable "vcn_id" {
   type        = string
 }
 
+variable "enable_ipv6" {
+  default = false
+  type = bool
+}
+
+variable "prefer_ipv6" {
+  default = false
+  type = bool
+  description = "Whether or not to use IPv6 for Pod and Service addresses."
+}
+
 variable "vcn_create_nat_gateway" {
   default     = "auto"
   description = "Whether to create a NAT gateway with the VCN. Defaults to automatic creation when private network resources are expected to utilize it."
@@ -129,13 +140,13 @@ variable "nat_gateway_public_ip_id" {
 
 variable "subnets" {
   default = {
-    bastion  = { newbits = 13 }
-    operator = { newbits = 13 }
-    cp       = { newbits = 13 }
-    int_lb   = { newbits = 11 }
-    pub_lb   = { newbits = 11 }
-    workers  = { newbits = 4 }
-    pods     = { newbits = 2 }
+    bastion  = { newbits = 13, ipv6newbits = 30 }
+    operator = { newbits = 13, ipv6newbits = 30}
+    cp       = { newbits = 13, ipv6newbits = 30}
+    int_lb   = { newbits = 11, ipv6newbits = 16}
+    pub_lb   = { newbits = 11, ipv6newbits = 16}
+    workers  = { newbits = 4, ipv6newbits = 8 }
+    pods     = { newbits = 2, ipv6newbits = 4 }
   }
   description = "Configuration for standard subnets. The 'create' parameter of each entry defaults to 'auto', creating subnets when other enabled components are expected to utilize them, and may be configured with 'never' or 'always' to force disabled/enabled."
   type = map(object({
@@ -145,6 +156,10 @@ variable "subnets" {
     netnum    = optional(string)
     cidr      = optional(string)
     dns_label = optional(string)
+    ipv6enable = optional(bool)
+    ipv6cidr  = optional(string)
+    ipv6newbits = optional(string)
+    ipv6netnum = optional(string)
   }))
   validation {
     condition = alltrue([
@@ -154,7 +169,7 @@ variable "subnets" {
   }
   validation {
     condition = alltrue([
-      for v in flatten([for k, v in var.subnets : keys(v)]) : contains(["create", "id", "cidr", "netnum", "newbits", "dns_label"], v)
+      for v in flatten([for k, v in var.subnets : keys(v)]) : contains(["create", "id", "cidr", "netnum", "newbits", "dns_label", "ipv6enable", "ipv6cidr", "ipv6newbits", "ipv6netnum"], v)
     ])
     error_message = format("Invalid subnet configuration keys: %s", jsonencode(distinct([
       for v in flatten([for k, v in var.subnets : keys(v)]) : v if !contains(["create", "id", "cidr", "netnum", "newbits", "dns_label"], v)
@@ -279,4 +294,3 @@ variable "enable_waf" {
   type        = bool
   default     = false
 }
-

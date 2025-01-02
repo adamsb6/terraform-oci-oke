@@ -4,6 +4,10 @@
 # Common
 variable "compartment_id" { type = string }
 variable "state_id" { type = string }
+variable "enable_ipv6" {
+  type = bool
+  default = false
+ }
 
 # Tags
 variable "defined_tags" { type = map(string) }
@@ -46,6 +50,8 @@ variable "subnets" {
     netnum    = optional(string)
     cidr      = optional(string)
     dns_label = optional(string)
+    ipv6newbits = optional(string)
+    ipv6netnum = optional(string)
   }))
 }
 

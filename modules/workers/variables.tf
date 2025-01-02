@@ -21,6 +21,16 @@ variable "tenancy_id" {
   type        = string
 }
 
+variable "enable_ipv6" {
+  default = false
+  type = bool
+}
+
+variable "ipv6cidr_block" {
+  type = string
+  default = null
+}
+
 # Tags
 
 variable "freeform_tags" {

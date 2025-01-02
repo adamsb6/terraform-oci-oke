@@ -87,7 +87,7 @@ module "drg" {
   drg_id              = one([var.drg_id]) # existing DRG ID or null
   drg_display_name    = coalesce(var.drg_display_name, "oke-${local.state_id}")
   drg_vcn_attachments = tobool(var.create_drg) || var.drg_id != null ? { for k, v in module.vcn : k => {
-    # gets the vcn_id values dynamically from the vcn module 
+    # gets the vcn_id values dynamically from the vcn module
     vcn_id : v.vcn_id
     vcn_transit_routing_rt_id : null
     drg_route_table_id : null
@@ -110,6 +110,7 @@ module "network" {
   freeform_tags    = local.network_freeform_tags
   tag_namespace    = var.tag_namespace
   use_defined_tags = var.use_defined_tags
+  enable_ipv6 = var.enable_ipv6
 
   allow_node_port_access       = var.allow_node_port_access
   allow_pod_internet_access    = var.allow_pod_internet_access
@@ -202,6 +203,10 @@ output "fss_subnet_id" {
 }
 output "fss_subnet_cidr" {
   value = try(module.network.fss_subnet_cidr, null)
+}
+
+output "subnet_ipv6_cidrs" {
+  value = try(module.network.ipv6_subnet_cidrs, null)
 }
 
 # NSGs

@@ -82,7 +82,7 @@ locals {
       ])
 
       # Combine global and pool-specific cloud init parts
-      cloud_init = [for part in concat(var.cloud_init, pool.cloud_init) :
+      cloud_init = [for part in concat(pool.cloud_init, var.cloud_init) :
         {
           # Load content from file if local path, attempt base64 decode, or use raw value
           content = contains(keys(part), "content") ? (

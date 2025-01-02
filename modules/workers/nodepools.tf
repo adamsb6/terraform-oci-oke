@@ -31,6 +31,7 @@ resource "oci_containerengine_node_pool" "tfscaled_workers" {
         capacity_reservation_id = each.value.capacity_reservation_id
         subnet_id               = each.value.subnet_id
 
+
         # Value(s) specified on pool, or null to select automatically
         fault_domains = try(each.value.placement_fds, null)
 

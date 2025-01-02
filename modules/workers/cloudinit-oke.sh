@@ -29,4 +29,8 @@ function run_oke_init() { # Initialize OKE worker node
   fi
 }
 
+set -a
+source /etc/environment
+set +a
+
 time run_oke_init || { echo "Error in OKE startup" 1>&2; exit 1; }

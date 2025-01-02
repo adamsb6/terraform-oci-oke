@@ -7,6 +7,7 @@ locals {
   # May be undefined when VCN is neither created nor required, e.g. when creating only workers for
   # an existing cluster. Fallback value is unused.
   vcn_cidr = length(var.vcn_cidrs) > 0 ? element(var.vcn_cidrs, 0) : "0.0.0.0/16"
+  vcn_ipv6_cidr = length(data.oci_core_vcn.oke_vcn.ipv6cidr_blocks) == 1 ? one(data.oci_core_vcn.oke_vcn.ipv6cidr_blocks) : null
 
   # Filter configured subnets eligible for resource creation
   subnet_cidrs_new = {
@@ -14,7 +15,12 @@ locals {
       "type" = (lookup(v, "netnum", null) == null && lookup(v, "newbits", null) != null ? "newbits"
         : (lookup(v, "netnum", null) != null && lookup(v, "newbits", null) != null ? "netnum"
           : (lookup(v, "cidr", null) != null ? "cidr"
-            : (lookup(v, "id", null) != null ? "id"
+              : (lookup(v, "id", null) != null ? "id"
+      : "invalid"))))
+      "v6type" = (lookup(v, "ipv6netnum", null) == null && lookup(v, "ipv6newbits", null) != null ? "newbits"
+        : (lookup(v, "ipv6netnum", null) != null && lookup(v, "ipv6newbits", null) != null ? "netnum"
+          : (lookup(v, "ipv6cidr", null) != null ? "cidr"
+              : (lookup(v, "id", null) != null ? "id"
       : "invalid"))))
     }) if try(v.create, "auto") != "never"
   }
@@ -24,9 +30,17 @@ locals {
     for k, v in local.subnet_cidrs_new : k => lookup(v, "cidr") if v.type == "cidr"
   }
 
+  subnet_ipv6_cidrs_cidr_input = {
+    for k, v in local.subnet_cidrs_new : k => lookup(v, "ipv6cidr") if v.v6type == "cidr"
+  }
+
   # Handle subnets configured with only newbits for sizing
   subnet_cidrs_newbits_input = {
     for k, v in local.subnet_cidrs_new : k => lookup(v, "newbits") if v.type == "newbits"
+  }
+
+  subnet_ipv6_cidrs_newbits_input = {
+    for k, v in local.subnet_cidrs_new : k => lookup(v, "ipv6newbits") if v.v6type == "newbits"
   }
 
   # Generate CIDR ranges for subnets to be created
@@ -35,10 +49,20 @@ locals {
     for k, v in local.subnet_cidrs_newbits_input : k => element(local.subnet_cidrs_newbits_ranges, index(keys(local.subnet_cidrs_newbits_input), k))
   } : {}
 
+  subnet_ipv6_cidrs_newbits_ranges = local.vcn_ipv6_cidr != null ? cidrsubnets(local.vcn_ipv6_cidr, values(local.subnet_ipv6_cidrs_newbits_input)...) : []
+  subnet_ipv6_cidrs_newbits_resolved = length(local.subnet_ipv6_cidrs_newbits_ranges) > 0 ? {
+    for k, v in local.subnet_ipv6_cidrs_newbits_input : k => element(local.subnet_ipv6_cidrs_newbits_ranges, index(keys(local.subnet_ipv6_cidrs_newbits_input), k))
+  } : {}
+
   # Handle subnets configured with netnum + newbits for sizing
   subnet_cidrs_netnum_newbits_ranges = {
     for k, v in local.subnet_cidrs_new : k => cidrsubnet(local.vcn_cidr, lookup(v, "newbits"), lookup(v, "netnum"))
     if v.type == "netnum"
+  }
+
+  subnet_ipv6_cidrs_netnum_newbits_ranges = {
+    for k, v in local.subnet_cidrs_new : k => cidrsubnet(local.vcn_ipv6_cidr, lookup(v, "ipv6newbits"), lookup(v, "ipv6netnum"))
+    if v.v6type == "netnum"
   }
 
   // Combine provided and calculated subnet CIDRs
@@ -47,6 +71,12 @@ locals {
     local.subnet_cidrs_newbits_resolved,
     local.subnet_cidrs_netnum_newbits_ranges,
   )
+
+  subnet_ipv6_cidrs_all = var.enable_ipv6 ? merge(
+    local.subnet_ipv6_cidrs_cidr_input,
+    local.subnet_ipv6_cidrs_newbits_resolved,
+    local.subnet_ipv6_cidrs_netnum_newbits_ranges,
+  ) : {}
 
   # Map of subnets for standard components with additional configuration derived
   # TODO enumerate worker pools for public/private overrides, conditional subnets for both
@@ -126,6 +156,7 @@ resource "oci_core_subnet" "oke" {
   compartment_id             = var.compartment_id
   vcn_id                     = var.vcn_id
   cidr_block                 = lookup(local.subnet_cidrs_all, each.key)
+  ipv6cidr_block = var.enable_ipv6 ? lookup(local.subnet_ipv6_cidrs_all, each.key) : null
   display_name               = format("%v-%v", each.key, var.state_id)
   dns_label                  = lookup(local.subnet_dns_labels, each.key, null)
   prohibit_public_ip_on_vnic = !tobool(lookup(each.value, "is_public", false))
@@ -137,7 +168,7 @@ resource "oci_core_subnet" "oke" {
   lifecycle {
     ignore_changes = [
       freeform_tags, defined_tags, display_name,
-      cidr_block, dns_label, security_list_ids, vcn_id, route_table_id,
+      cidr_block, dns_label, security_list_ids, vcn_id, #route_table_id,
     ]
   }
 }
@@ -212,4 +243,12 @@ output "fss_subnet_id" {
 }
 output "fss_subnet_cidr" {
   value = contains(keys(local.subnet_output), "fss") ? lookup(local.subnet_cidrs_all, "fss", null) : null
+}
+
+output "ipv6_subnet_cidrs" {
+  value = local.subnet_ipv6_cidrs_all
+}
+
+output "pod_subnet_ipv6_cidr" {
+  value = contains(keys(local.subnet_output), "pods") ? lookup(local.subnet_ipv6_cidrs_all, "pods", null) : null
 }
